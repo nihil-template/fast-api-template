@@ -1,5 +1,7 @@
 # Python 기초: 딕셔너리 (Dictionary)
 
+> JavaScript 비교는 참고용입니다. Python 딕셔너리만 집중하려면 Python 예제만 실행하면 됩니다. `notebooks/06-python-data-structures-dict.ipynb`와 `training/6.dict.py`를 열어 키-값 조작을 직접 연습하세요.
+
 ## 개요
 
 딕셔너리는 키-값 쌍으로 이루어진 자료구조입니다. Python의 딕셔너리는 JavaScript의 객체(Object)와 유사하지만, 몇 가지 중요한 차이점이 있습니다.
@@ -250,4 +252,9 @@ console.log(evenSquares);  // {0: 0, 2: 4, 4: 16, 6: 36, 8: 64}
 - Python은 `get()` 메서드로 안전한 접근, JavaScript는 옵셔널 체이닝 사용
 - Python의 `items()`는 튜플 리스트, JavaScript의 `entries()`는 배열의 배열
 - Python의 딕셔너리 컴프리헨션은 JavaScript에 없지만, `Object.fromEntries()`로 유사하게 구현 가능
+
+## 직접 해보기
+1. `training/6.dict.py`에 취미 리스트를 추가하고, 반복문으로 모든 취미를 출력해 보세요.
+2. 두 개의 딕셔너리를 병합할 때 `|` 연산자와 `update()` 메서드의 차이를 실험해 보세요 (Python 3.9+).
+3. 딕셔너리 컴프리헨션을 사용해 1~5 숫자에 대한 제곱/세제곱 정보를 갖는 딕셔너리를 생성하세요.
 

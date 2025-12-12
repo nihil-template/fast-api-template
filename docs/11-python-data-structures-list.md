@@ -1,5 +1,7 @@
 # Python 기초: 리스트 (List)
 
+> JavaScript 비교는 참고용입니다. Python 리스트를 중심으로 배우려면 Python 코드만 따라 해도 됩니다. 실습은 `notebooks/05-python-data-structures-list.ipynb`와 `training/5.list.py`에서 리스트 조작을 직접 수행하세요.
+
 ## 개요
 
 리스트는 순서가 있는 변경 가능한 시퀀스입니다. Python의 리스트는 JavaScript의 배열과 유사하지만, 몇 가지 중요한 차이점이 있습니다.
@@ -278,4 +280,9 @@ console.log(evenSquares);  // [0, 4, 16, 36, 64]
 - Python의 슬라이싱이 더 간결하고 직관적
 - Python의 `sort()`는 기본적으로 숫자를 올바르게 정렬하지만, JavaScript는 비교 함수 필요
 - Python의 리스트 컴프리헨션은 JavaScript의 배열 메서드 체이닝과 유사한 역할
+
+## 직접 해보기
+1. `training/5.list.py`에서 `fruits` 리스트를 정렬하거나 삭제하는 연습을 추가해 보세요.
+2. 중첩 리스트를 만들어 2차원 좌표(예: `[x, y]`)를 다루는 코드를 작성하세요.
+3. 슬라이싱 문법을 이용해 리스트의 앞/뒤 일부만 복사하고, 얕은 복사/깊은 복사 차이를 실험해 보세요.
 
