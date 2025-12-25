@@ -1,0 +1,30 @@
+[project]
+name = "fast-api-template"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.127.0",
+    "psycopg[binary]>=3.3.2",
+    "pydantic-settings>=2.12.0",
+    "sqlmodel>=0.0.29",
+]
+
+[tool.ruff]
+# 인덴트 너비 설정 (기본값 4 -> 2)
+indent-width = 2
+
+# 줄 길이 제한 (취향에 따라 80, 100, 120 등으로 조절 가능)
+line-length = 88
+
+[tool.ruff.format]
+# 문자열 인용부호 스타일 (double -> single)
+quote-style = "single"
+
+# 인덴트 스타일 (space 또는 tab)
+indent-style = "space"
+
+[tool.ruff.lint]
+# 규칙 선택 (E: pycodestyle 에러, F: Pyflakes, I: isort 임포트 정렬)
+select = ["E", "F", "I"]
