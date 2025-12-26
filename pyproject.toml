@@ -9,7 +9,10 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "psycopg[binary]>=3.3.2",
     "pydantic-settings>=2.12.0",
+    "python-jose[cryptography]>=3.5.0",
+    "requests>=2.32.0",
     "sqlmodel>=0.0.29",
+    "types-requests>=2.32.4",
 ]
 
 [tool.ruff]
@@ -29,3 +32,7 @@ indent-style = "space"
 [tool.ruff.lint]
 # 규칙 선택 (E: pycodestyle 에러, F: Pyflakes, I: isort 임포트 정렬)
 select = ["E", "F", "I"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+

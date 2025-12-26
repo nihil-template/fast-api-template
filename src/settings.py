@@ -6,6 +6,12 @@ class Settings(BaseSettings):
   DATABASE_URL: str = ''
   ENVIRONMENT: str = 'development'  # development 또는 production
 
+  # JWT 관련 환경변수
+  ACCESS_TOKEN_SECRET: str = ''
+  REFRESH_TOKEN_SECRET: str = ''
+  ACCESS_EXP: str = '15m'  # 기본값 15분
+  REFRESH_EXP: str = '7d'  # 기본값 7일
+
   # .env 파일을 읽도록 설정
   model_config = SettingsConfigDict(env_file='.env')
 

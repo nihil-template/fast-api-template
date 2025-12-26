@@ -9,34 +9,95 @@ FastAPI 기반의 RESTful API 템플릿 프로젝트입니다.
 - 3계층 아키텍처 (Router → Service → DAO)
 - SQLModel을 사용한 타입 안전한 데이터베이스 모델
 - 표준화된 응답 형식 (`ApiResponse`)
+- JWT 기반 인증 시스템 (Access Token + Refresh Token)
+- VO(Value Object) 패턴을 통한 일관된 데이터 전달
+- 메시지 관리 클래스를 통한 응답 메시지 표준화
+- CORS 설정 지원
+- 환경별 설정 분리 (development/production)
 
 ## 프로젝트 구조
 
 ```
 src/
-├── main.py              # FastAPI 앱 진입점
-├── db.py                # 데이터베이스 연결 설정
-├── settings.py          # 환경 변수 설정
-├── routers/             # API 라우터
-│   └── user_router.py   # 사용자 관련 엔드포인트
-├── services/            # 비즈니스 로직
-│   └── user_service.py
-├── dao/                 # 데이터 접근 객체
-│   └── user_dao.py
-├── models/              # 데이터베이스 모델
-│   └── user.py
-├── schemas/             # Pydantic 스키마
-│   ├── user_schema.py
-│   ├── response_schema.py
-│   └── response_code.py
-└── utils/               # 유틸리티 함수
-    ├── response.py
-    └── swagger_examples.py  # Swagger 예시 응답 헬퍼
+├── main.py                    # FastAPI 앱 진입점
+├── db.py                      # 데이터베이스 연결 설정
+├── settings.py                # 환경 변수 설정
+├── routers/                   # API 라우터
+│   ├── auth_router.py         # 인증 관련 엔드포인트 (로그인, 로그아웃, 비밀번호 재설정/변경)
+│   └── user_router.py         # 사용자 관련 엔드포인트 (CRUD)
+├── services/                  # 비즈니스 로직
+│   ├── auth_service.py        # 인증 비즈니스 로직
+│   └── user_service.py        # 사용자 비즈니스 로직
+├── dao/                       # 데이터 접근 객체
+│   └── user_dao.py            # 사용자 데이터 접근 로직
+├── models/                    # 데이터베이스 모델 (SQLModel)
+│   └── user.py                # 사용자 모델
+├── schemas/                   # Pydantic 스키마
+│   ├── auth_schema.py         # 인증 관련 스키마
+│   ├── user_schema.py         # 사용자 관련 스키마
+│   ├── response_schema.py     # 표준 응답 스키마
+│   └── response_code.py       # 응답 코드 Enum
+├── messages/                  # 응답 메시지 관리
+│   ├── auth_message.py        # 인증 관련 메시지
+│   └── user_message.py        # 사용자 관련 메시지
+├── vos/                       # Value Object (데이터 전달 객체)
+│   ├── search_vo.py           # 검색/페이지네이션 공통 VO
+│   └── user_vo.py             # 사용자 VO (모든 작업에서 사용)
+└── utils/                     # 유틸리티 함수
+    ├── auth.py                # 인증 유틸리티 (토큰 검증, 사용자 추출)
+    ├── jwt.py                 # JWT 토큰 생성/검증
+    ├── password.py            # 비밀번호 해싱/검증
+    ├── response.py            # 응답 생성 헬퍼
+    └── swagger_examples.py    # Swagger 예시 응답 헬퍼
 ```
+
+## 아키텍처 설명
+
+### 3계층 아키텍처
+
+1. **Router Layer** (`routers/`)
+   - HTTP 요청/응답 처리
+   - 요청 검증 및 응답 형식 변환
+   - Swagger 문서화 설정
+
+2. **Service Layer** (`services/`)
+   - 비즈니스 로직 처리
+   - 트랜잭션 관리
+   - DAO 호출 및 결과 가공
+
+3. **DAO Layer** (`dao/`)
+   - 데이터베이스 접근 로직
+   - SQL 쿼리 실행
+   - 모델 ↔ VO 변환
+
+### VO(Value Object) 패턴
+
+각 리소스별로 하나의 VO를 사용하여 모든 작업(get, post, update, delete)을 처리합니다.
+
+- `SearchVo`: 검색/페이지네이션 공통 필드 (모든 VO의 부모 클래스)
+- `UserVo`: 사용자 관련 모든 필드 포함 (검색, 생성, 수정, 삭제 모두에서 사용)
+
+### 메시지 관리
+
+응답 메시지는 `messages/` 폴더의 클래스에서 관리합니다.
+
+- `AuthMessage`: 인증 관련 메시지
+- `UserMessage`: 사용자 관련 메시지
+
+이를 통해 메시지 중복을 줄이고 일관성을 유지합니다.
+
+### 인증 시스템
+
+JWT 기반 인증을 사용합니다.
+
+- **Access Token**: 짧은 만료 시간 (기본 15분)
+- **Refresh Token**: 긴 만료 시간 (기본 7일)
+- 토큰은 HTTP 헤더의 `Authorization: Bearer <token>` 형식으로 전달
+- `utils/auth.py`의 `get_current_user_id` 의존성으로 현재 사용자 추출
 
 ## Swagger 예시 응답 헬퍼 함수
 
-각 테이블별로 Swagger UI에 표시될 예시 응답 데이터를 생성하는 헬퍼 함수를 만들어야 합니다.
+각 테이블별로 Swagger UI에 표시될 예시 응답 데이터를 생성하는 헬퍼 함수를 `src/utils/swagger_examples.py`에서 관리합니다.
 
 ### 사용 방법
 
@@ -127,7 +188,21 @@ pip install -e .
 ```
 
 3. 환경 변수 설정
-`.env` 파일을 생성하고 데이터베이스 연결 정보를 설정하세요.
+`.env` 파일을 생성하고 다음 변수들을 설정하세요:
+
+```env
+# 데이터베이스
+DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+
+# 환경 설정
+ENVIRONMENT=development  # 또는 production
+
+# JWT 설정
+ACCESS_TOKEN_SECRET=your-access-token-secret-key
+REFRESH_TOKEN_SECRET=your-refresh-token-secret-key
+ACCESS_EXP=15m  # Access Token 만료 시간 (기본값: 15분)
+REFRESH_EXP=7d   # Refresh Token 만료 시간 (기본값: 7일)
+```
 
 4. 데이터베이스 초기화
 ```bash
@@ -158,3 +233,57 @@ uvicorn src.main:app --reload
 ```
 
 모든 응답은 HTTP 상태 코드 200으로 반환되며, 실제 성공/실패 여부는 `error` 필드와 `code` 필드로 구분합니다.
+
+### 응답 코드 종류
+
+`ResponseCode` Enum에 정의된 코드들:
+
+- **성공 (2xx)**: `OK`, `CREATED`, `ACCEPTED`, `NO_CONTENT`
+- **클라이언트 에러 (4xx)**: `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `METHOD_NOT_ALLOWED`, `CONFLICT`, `VALIDATION_ERROR`, `UNPROCESSABLE_ENTITY`
+- **서버 에러 (5xx)**: `INTERNAL_SERVER_ERROR`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`
+
+### 리스트 응답 형식
+
+리스트 조회 시에는 다음 형식을 사용합니다:
+
+```json
+{
+  "data": {
+    "list": [...],  // 데이터 리스트
+    "totalCnt": 10  // 전체 개수
+  },
+  "error": false,
+  "code": "OK",
+  "message": "조회에 성공했습니다."
+}
+```
+
+## API 엔드포인트
+
+### 인증 API (`/auth`)
+
+- `POST /auth/login` - 로그인
+- `POST /auth/logout` - 로그아웃
+- `POST /auth/reset-password/request` - 비밀번호 재설정 요청
+- `POST /auth/reset-password` - 비밀번호 재설정
+- `POST /auth/change-password` - 비밀번호 변경 (로그인 필요)
+
+### 사용자 관리 API (`/users`)
+
+- `POST /users` - 사용자 생성
+- `GET /users` - 사용자 목록 조회 (페이지네이션)
+- `GET /users/{user_no}` - 사용자 조회 (번호)
+- `GET /users/email/{eml_addr}` - 사용자 조회 (이메일)
+- `PATCH /users/{user_no}` - 사용자 정보 수정
+- `PATCH /users/{user_no}/password` - 사용자 비밀번호 수정
+- `DELETE /users/{user_no}` - 사용자 단건 삭제
+- `DELETE /users` - 사용자 다건 삭제
+
+## 기술 스택
+
+- **FastAPI**: 웹 프레임워크
+- **SQLModel**: ORM 및 타입 안전성
+- **PostgreSQL**: 데이터베이스 (psycopg)
+- **Pydantic**: 데이터 검증 및 설정 관리
+- **python-jose**: JWT 토큰 처리
+- **passlib**: 비밀번호 해싱 (bcrypt)

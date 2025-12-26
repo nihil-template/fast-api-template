@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlmodel import Session
 
 from src.db import get_session
@@ -6,6 +6,7 @@ from src.messages.user_message import UserMessage
 from src.schemas.response_code import ResponseCode
 from src.schemas.response_schema import ApiResponse, ListResponse
 from src.services.user_service import UserService
+from src.utils.auth import get_current_user_id, get_current_user_id_optional
 from src.utils.swagger_examples import get_user_list_example, get_user_response_example
 from src.vos.user_vo import UserVo
 
@@ -73,12 +74,18 @@ def get_user_service(session: Session = Depends(get_session)) -> UserService:
   },
 )
 def createUser(
+  request: Request,
   user_vo: UserVo,
+  current_user_no: int | None = Depends(get_current_user_id_optional),
   service: UserService = Depends(get_user_service),
 ):
-  """새로운 사용자를 생성합니다."""
+  """새로운 사용자를 생성합니다.
+
+  - 자기 가입: 토큰 없이 호출 시 crtNo는 None
+  - 관리자 생성: 토큰과 함께 호출 시 crtNo는 관리자 번호
+  """
   print('[ROUTER] user_vo:', user_vo.model_dump())
-  return service.createUser(user_vo)
+  return service.createUser(user_vo, crt_no=current_user_no)
 
 
 @router.get(
@@ -271,13 +278,15 @@ def getUserList(
   },
 )
 def updateUserPassword(
+  request: Request,
   user_no: int,
   user_vo: UserVo,
+  current_user_no: int = Depends(get_current_user_id),
   service: UserService = Depends(get_user_service),
 ):
   """사용자 비밀번호를 수정합니다."""
   user_vo.userNo = user_no
-  return service.updateUserPassword(user_vo)
+  return service.updateUserPassword(user_vo, updt_no=current_user_no)
 
 
 @router.patch(
@@ -336,13 +345,15 @@ def updateUserPassword(
   },
 )
 def updateUser(
+  request: Request,
   user_no: int,
   user_vo: UserVo,
+  current_user_no: int = Depends(get_current_user_id),
   service: UserService = Depends(get_user_service),
 ):
   """사용자 정보를 수정합니다. (PATCH 방식 - 전달된 필드만 업데이트, 비밀번호 제외)"""
   user_vo.userNo = user_no
-  return service.updateUser(user_vo)
+  return service.updateUser(user_vo, updt_no=current_user_no)
 
 
 @router.delete(
@@ -392,12 +403,14 @@ def updateUser(
   },
 )
 def deleteUser(
+  request: Request,
   user_no: int,
+  current_user_no: int = Depends(get_current_user_id),
   service: UserService = Depends(get_user_service),
 ):
   """사용자를 단건 삭제합니다. (소프트 삭제)"""
   user_vo = UserVo(userNo=user_no)
-  return service.deleteUser(user_vo)
+  return service.deleteUser(user_vo, updt_no=current_user_no)
 
 
 @router.delete(
@@ -447,11 +460,13 @@ def deleteUser(
   },
 )
 def deleteUsers(
+  request: Request,
   user_vo: UserVo,
+  current_user_no: int = Depends(get_current_user_id),
   service: UserService = Depends(get_user_service),
 ):
   """사용자를 다건 삭제합니다. (소프트 삭제)
 
   - 요청 예시: `{"userNoList": [1, 2, 3]}` 형태로 요청
   """
-  return service.deleteUsers(user_vo)
+  return service.deleteUsers(user_vo, updt_no=current_user_no)

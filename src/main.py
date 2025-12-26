@@ -1,12 +1,13 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
 from src.db import init_db
+from src.routers.auth_router import router as auth_router
 from src.routers.user_router import router as user_router
 from src.schemas.response_schema import ApiResponse
 from src.utils.response import success_response
@@ -21,6 +22,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
   lifespan=lifespan,
   openapi_tags=[
+    {
+      'name': '인증',
+      'description': '로그인, 로그아웃, 비밀번호 재설정/변경 관련 API',
+    },
     {
       'name': '사용자 관리',
       'description': '사용자 생성, 조회, 수정, 삭제 관련 API',
@@ -63,7 +68,29 @@ async def validation_exception_handler(
   )
 
 
+# 401 Unauthorized Error를 200 응답으로 변환하는 커스텀 핸들러
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+  """HTTPException을 200 응답으로 변환 (401 에러 포함)"""
+  # detail이 dict 형태인 경우 그대로 사용, 아니면 변환
+  if isinstance(exc.detail, dict):
+    content = exc.detail
+  else:
+    content = {
+      'data': None,
+      'error': True,
+      'code': 'UNAUTHORIZED' if exc.status_code == 401 else 'ERROR',
+      'message': str(exc.detail),
+    }
+
+  return JSONResponse(
+    status_code=status.HTTP_200_OK,  # [핵심] 상태 코드를 200으로 강제
+    content=content,
+  )
+
+
 # 라우터 등록
+app.include_router(auth_router)
 app.include_router(user_router)
 
 

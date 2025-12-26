@@ -42,6 +42,3 @@ class UserVo(SearchVo):
 
   # 확장 필드 (검색 조건, 계산된 필드 등)
   userNoList: Optional[list[int]] = None  # 검색/삭제용
-
-  class Config:
-    from_attributes = True

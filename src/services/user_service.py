@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlmodel import Session
@@ -18,8 +19,15 @@ class UserService:
     self.session = session
     self.dao = UserDAO()
 
-  def createUser(self, user_vo: UserVo) -> ApiResponse[UserVo]:
-    """사용자 생성"""
+  def createUser(
+    self, user_vo: UserVo, crt_no: int | None = None
+  ) -> ApiResponse[UserVo]:
+    """사용자 생성
+
+    Args:
+      user_vo: 사용자 정보 VO
+      crt_no: 생성자 번호 (관리자가 생성하는 경우 관리자 번호, 자기 가입인 경우 None)
+    """
     print('[SERVICE] user_vo:', user_vo.model_dump())
     # 필수값 검증
     if (
@@ -52,6 +60,12 @@ class UserService:
     # 비밀번호 해시화 (password -> encptPswd)
     if user_vo.password:
       user_vo.encptPswd = hash_password(user_vo.password)
+
+    # 생성자 번호 설정 (관리자가 생성하는 경우)
+    if crt_no:
+      user_vo.crtNo = crt_no
+      # 생성 일시도 설정
+      user_vo.crtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
     # 사용자 생성
     user_entity = self.dao.create_user(self.session, user_vo)
@@ -105,7 +119,7 @@ class UserService:
     list_response = ListResponse(list=user_responses, totalCnt=len(user_responses))
     return success_response(data=list_response, message=UserMessage.GET_LIST_SUCCESS)
 
-  def updateUser(self, user_vo: UserVo) -> ApiResponse[UserVo]:
+  def updateUser(self, user_vo: UserVo, updt_no: int) -> ApiResponse[UserVo]:
     """사용자 정보 업데이트 (비밀번호 제외)"""
     if not user_vo.userNo:
       return error_response(
@@ -134,6 +148,10 @@ class UserService:
           code=ResponseCode.CONFLICT,
         )
 
+    # 업데이트 번호와 일시 설정 (로그인한 사용자 번호 사용)
+    user_vo.updtNo = updt_no
+    user_vo.updtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
     updated_user_entity = self.dao.update_user(self.session, user_entity, user_vo)
 
     # Entity를 VO로 변환하여 반환
@@ -143,7 +161,7 @@ class UserService:
       message=UserMessage.UPDATE_SUCCESS,
     )
 
-  def updateUserPassword(self, user_vo: UserVo) -> ApiResponse[UserVo]:
+  def updateUserPassword(self, user_vo: UserVo, updt_no: int) -> ApiResponse[UserVo]:
     """사용자 비밀번호 업데이트"""
     if not user_vo.userNo or not user_vo.password:
       return error_response(
@@ -159,6 +177,9 @@ class UserService:
 
     # 비밀번호만 업데이트
     user_entity.encptPswd = user_vo.encptPswd
+    # 업데이트 번호와 일시 설정 (로그인한 사용자 번호 사용)
+    user_entity.updtNo = updt_no
+    user_entity.updtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     self.session.add(user_entity)
     self.session.commit()
     self.session.refresh(user_entity)
@@ -170,7 +191,7 @@ class UserService:
       message=UserMessage.UPDATE_SUCCESS,
     )
 
-  def deleteUser(self, user_vo: UserVo) -> ApiResponse[None]:
+  def deleteUser(self, user_vo: UserVo, updt_no: int) -> ApiResponse[None]:
     """사용자 단건 삭제"""
     if not user_vo.userNo:
       return error_response(
@@ -185,10 +206,13 @@ class UserService:
         )
       )
 
+    # 삭제 시 업데이트 번호와 일시 설정 (로그인한 사용자 번호 사용)
+    user_entity.updtNo = updt_no
+    user_entity.updtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     self.dao.delete_user(self.session, user_entity)
     return success_response(message=UserMessage.get_delete_message(is_single=True))
 
-  def deleteUsers(self, user_vo: UserVo) -> ApiResponse[None]:
+  def deleteUsers(self, user_vo: UserVo, updt_no: int) -> ApiResponse[None]:
     """사용자 다건 삭제"""
     if not user_vo.userNoList or len(user_vo.userNoList) == 0:
       return error_response(
@@ -209,6 +233,12 @@ class UserService:
       return success_response(
         message=UserMessage.get_delete_not_found_message(is_single=False)
       )
+
+    # 삭제 시 업데이트 번호와 일시 설정 (로그인한 사용자 번호 사용)
+    updt_dt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    for user_entity in user_entities:
+      user_entity.updtNo = updt_no
+      user_entity.updtDt = updt_dt
 
     self.dao.delete_users(self.session, user_entities)
 
