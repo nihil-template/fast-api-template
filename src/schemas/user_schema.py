@@ -6,20 +6,27 @@ from src.models import UserRole, YnStatus
 
 
 # 요청 스키마
-class UserCreate(BaseModel):
+class CreateUser(BaseModel):
   emlAddr: EmailStr
   userNm: str
-  encptPswd: str
+  password: str
   userRole: UserRole = UserRole.USER
 
 
-class UserUpdate(BaseModel):
+class DeleteUserRequest(BaseModel):
+  """사용자 삭제 요청 VO (단건 또는 다건 삭제)"""
+
+  userNo: Optional[int] = None
+  userNoList: Optional[list[int]] = None
+
+
+class UpdateUser(BaseModel):
   emlAddr: Optional[EmailStr] = None
   userNm: Optional[str] = None
   userRole: Optional[UserRole] = None
   proflImg: Optional[str] = None
   userBiogp: Optional[str] = None
-  encptPswd: Optional[str] = None
+  password: Optional[str] = None
   useYn: Optional[YnStatus] = None
   delYn: Optional[YnStatus] = None
   lastLgnDt: Optional[str] = None
@@ -54,11 +61,9 @@ class UserResponse(BaseModel):
   class Config:
     from_attributes = True
 
-  @model_validator(mode='before')
-  @classmethod
-  def mask_sensitive_fields(cls, data):
+  @model_validator(mode='after')
+  def mask_sensitive_fields(self):
     """비밀번호와 리프레시 토큰을 항상 null로 설정"""
-    if isinstance(data, dict):
-      data['encptPswd'] = None
-      data['reshToken'] = None
-    return data
+    self.encptPswd = None
+    self.reshToken = None
+    return self

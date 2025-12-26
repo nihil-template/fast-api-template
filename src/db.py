@@ -8,7 +8,19 @@ from src.models import (  # noqa: F401
 )
 from src.settings import settings
 
-engine = create_engine(settings.DATABASE_URL, echo=True)
+# 연결 풀 설정:
+# - pool_pre_ping=True: 연결 사용 전에 살아있는지 확인 (stale connection 방지)
+# - pool_recycle=3600: 1시간마다 연결을 재생성 (서버 타임아웃 방지)
+# - pool_size=5: 기본 연결 풀 크기
+# - max_overflow=10: 추가 연결 허용 수
+engine = create_engine(
+  settings.DATABASE_URL,
+  echo=True,
+  pool_pre_ping=True,  # 연결이 살아있는지 확인 후 사용
+  pool_recycle=3600,  # 1시간마다 연결 재생성 (초 단위)
+  pool_size=5,  # 기본 연결 풀 크기
+  max_overflow=10,  # 추가 연결 허용 수
+)
 
 
 def init_db():

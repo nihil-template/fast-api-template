@@ -7,6 +7,16 @@ from src.schemas.response_code import ResponseCode
 TData = TypeVar('TData')
 
 
+class ListResponse(BaseModel, Generic[TData]):
+  """리스트 응답 데이터 형식"""
+
+  list: list[TData]
+  totalCnt: int
+
+  class Config:
+    from_attributes = True
+
+
 class ApiResponse(BaseModel, Generic[TData]):
   """API 응답 표준 형식"""
 

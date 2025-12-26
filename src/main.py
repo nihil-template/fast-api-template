@@ -1,24 +1,15 @@
-import importlib.util
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
 from src.db import init_db
-from src.schemas.response_code import ResponseCode
+from src.routers.user_router import router as user_router
 from src.schemas.response_schema import ApiResponse
-from src.utils.response import error_response
-
-# 점(.)이 포함된 파일명 import
-router_path = Path(__file__).parent / 'routers' / 'user.router.py'
-spec = importlib.util.spec_from_file_location('user_router', router_path)
-if spec is None or spec.loader is None:
-  raise ImportError(f'라우터 모듈을 로드할 수 없습니다: {router_path}')
-user_router = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(user_router)
+from src.utils.response import success_response
 
 
 @asynccontextmanager
@@ -61,34 +52,54 @@ async def validation_exception_handler(
   request: Request, exc: RequestValidationError
 ) -> JSONResponse:
   """422 Validation Error를 200 응답으로 변환"""
-  errors = exc.errors()
-  error_messages = []
-  for error in errors:
-    field = ' -> '.join(str(loc) for loc in error['loc'])
-    error_messages.append(f'{field}: {error["msg"]}')
-
-  error_detail = '; '.join(error_messages)
-  response_data: ApiResponse[None] = error_response(
-    message=f'입력값 검증 실패: {error_detail}',
-    code=ResponseCode.VALIDATION_ERROR,
-  )
-
   return JSONResponse(
-    status_code=status.HTTP_200_OK,
-    content=response_data.model_dump(),
+    status_code=status.HTTP_200_OK,  # [핵심] 상태 코드를 200으로 강제
+    content={
+      'data': None,
+      'error': True,
+      'code': 'VALIDATION_ERROR',
+      'message': '입력값이 유효하지 않습니다.',
+    },
   )
 
 
 # 라우터 등록
-app.include_router(user_router.router)
+app.include_router(user_router)
+
+
+# OpenAPI 스키마 커스터마이징 - 422 응답 제거
+def custom_openapi():
+  if app.openapi_schema:
+    return app.openapi_schema
+
+  openapi_schema = get_openapi(
+    title='FastAPI Template',
+    version='0.1.0',
+    description='FastAPI 템플릿',
+    routes=app.routes,
+  )
+
+  # 모든 경로(path)를 순회하며 422 응답 정의를 삭제합니다.
+  for path in openapi_schema.get('paths', {}).values():
+    for method in path.values():
+      if 'responses' in method and '422' in method['responses']:
+        del method['responses']['422']
+
+  app.openapi_schema = openapi_schema
+  return app.openapi_schema
+
+
+# 커스텀 스키마 함수를 앱에 등록합니다.
+app.openapi = custom_openapi  # type: ignore[assignment]
 
 
 @app.get(
   '/',
+  response_model=ApiResponse[str],
   summary='헬로우 월드',
   operation_id='get_hello',
   tags=['기본'],
 )
 def getHello():
   """기본 헬로우 월드 엔드포인트"""
-  return 'Hello, World!'
+  return success_response(data='Hello, World!', message='정상 작동 중입니다.')

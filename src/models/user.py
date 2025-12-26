@@ -13,6 +13,7 @@ UTC_TIMESTAMP_FORMAT = (
 
 class UserRole(str, Enum):
   USER = 'USER'
+  ADMIN = 'ADMIN'
 
 
 class YnStatus(str, Enum):
@@ -33,7 +34,11 @@ class UserInfo(SQLModel, table=True):
 
   userRole: UserRole = Field(
     default=UserRole.USER,
-    sa_column=Column('user_role', SQLEnum(UserRole), default=UserRole.USER),
+    sa_column=Column(
+      'user_role',
+      SQLEnum(UserRole, name='user_role'),
+      default=UserRole.USER,
+    ),
   )
 
   proflImg: Optional[str] = Field(
@@ -52,12 +57,12 @@ class UserInfo(SQLModel, table=True):
 
   useYn: YnStatus = Field(
     default=YnStatus.Y,
-    sa_column=Column('use_yn', SQLEnum(YnStatus), default=YnStatus.Y),
+    sa_column=Column('use_yn', SQLEnum(YnStatus, name='yn_status'), default=YnStatus.Y),
   )
 
   delYn: YnStatus = Field(
     default=YnStatus.N,
-    sa_column=Column('del_yn', SQLEnum(YnStatus), default=YnStatus.N),
+    sa_column=Column('del_yn', SQLEnum(YnStatus, name='yn_status'), default=YnStatus.N),
   )
 
   lastLgnDt: Optional[str] = Field(
