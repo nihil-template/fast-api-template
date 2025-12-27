@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import Optional
 
 from sqlmodel import Session
@@ -7,8 +6,8 @@ from src.dao.user_dao import UserDAO
 from src.messages.user_message import UserMessage
 from src.schemas.response_code import ResponseCode
 from src.schemas.response_schema import ApiResponse, ListResponse
-from src.utils.password import hash_password
-from src.utils.response import error_response, success_response
+from src.utils.password_helper import hash_password
+from src.utils.response_helper import error_response, success_response
 from src.vos.user_vo import UserVo
 
 
@@ -18,6 +17,13 @@ class UserService:
   def __init__(self, session: Session):
     self.session = session
     self.dao = UserDAO()
+
+  def _nullify_sensitive_fields(self, user_vo: UserVo) -> UserVo:
+    """응답으로 보내기 전 민감한 필드를 None으로 설정"""
+    user_vo.encptPswd = None
+    user_vo.reshToken = None
+    user_vo.password = None
+    return user_vo
 
   def createUser(
     self, user_vo: UserVo, crt_no: int | None = None
@@ -57,21 +63,21 @@ class UserService:
         code=ResponseCode.CONFLICT,
       )
 
-    # 비밀번호 해시화 (password -> encptPswd)
+    # 비밀번호 해시화 (password -> encptPswd)s
     if user_vo.password:
       user_vo.encptPswd = hash_password(user_vo.password)
 
-    # 생성자 번호 설정 (관리자가 생성하는 경우)
-    if crt_no:
-      user_vo.crtNo = crt_no
-      # 생성 일시도 설정
-      user_vo.crtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-
-    # 사용자 생성
-    user_entity = self.dao.create_user(self.session, user_vo)
+    # 사용자 생성 (DAO에 생성자 번호 전달)
+    # crt_no가 None인 경우 (예: 자체 회원가입)를 대비해 기본값(0)
+    # 설정 또는 예외 처리 필요
+    # 여기서는 crt_no가 항상 유효한 값이라고 가정
+    # 자기 가입 시0번 또는 다른 기본값 사용
+    creator_id = crt_no if crt_no is not None else 0
+    user_entity = self.dao.create_user(self.session, user_vo, creator_id)
 
     # Entity를 VO로 변환하여 반환
     user_response = UserVo.model_validate(user_entity)
+    user_response = self._nullify_sensitive_fields(user_response)
     return success_response(
       data=user_response,
       message=UserMessage.CREATE_SUCCESS,
@@ -91,6 +97,7 @@ class UserService:
 
     # Entity를 VO로 변환하여 반환
     user_response = UserVo.model_validate(user_entity)
+    user_response = self._nullify_sensitive_fields(user_response)
     return success_response(data=user_response, message=UserMessage.GET_SUCCESS)
 
   def getUserByEmail(self, user_vo: UserVo) -> ApiResponse[UserVo]:
@@ -106,21 +113,24 @@ class UserService:
 
     # Entity를 VO로 변환하여 반환
     user_response = UserVo.model_validate(user_entity)
+    user_response = self._nullify_sensitive_fields(user_response)
     return success_response(data=user_response, message=UserMessage.GET_SUCCESS)
 
   def getUserList(
     self, user_vo: Optional[UserVo] = None
   ) -> ApiResponse[ListResponse[UserVo]]:
-    """사용자 목록 조회 (검색 조건 포함)"""
+    """사용자 목록 조회"""
     user_entities = self.dao.get_users(self.session, user_vo)
 
     # Entity 리스트를 VO 리스트로 변환
-    user_responses = [UserVo.model_validate(u) for u in user_entities]
+    user_responses = [
+      self._nullify_sensitive_fields(UserVo.model_validate(u)) for u in user_entities
+    ]
     list_response = ListResponse(list=user_responses, totalCnt=len(user_responses))
     return success_response(data=list_response, message=UserMessage.GET_LIST_SUCCESS)
 
   def updateUser(self, user_vo: UserVo, updt_no: int) -> ApiResponse[UserVo]:
-    """사용자 정보 업데이트 (비밀번호 제외)"""
+    """사용자 정보 업데이트"""
     if not user_vo.userNo:
       return error_response(
         message=UserMessage.INVALID_REQUEST, code=ResponseCode.VALIDATION_ERROR
@@ -148,14 +158,14 @@ class UserService:
           code=ResponseCode.CONFLICT,
         )
 
-    # 업데이트 번호와 일시 설정 (로그인한 사용자 번호 사용)
-    user_vo.updtNo = updt_no
-    user_vo.updtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-
-    updated_user_entity = self.dao.update_user(self.session, user_entity, user_vo)
+    # DAO를 통해 사용자 정보 업데이트 (수정자 번호 전달)
+    updated_user_entity = self.dao.update_user(
+      self.session, user_entity, user_vo, updt_no
+    )
 
     # Entity를 VO로 변환하여 반환
     user_response = UserVo.model_validate(updated_user_entity)
+    user_response = self._nullify_sensitive_fields(user_response)
     return success_response(
       data=user_response,
       message=UserMessage.UPDATE_SUCCESS,
@@ -173,19 +183,16 @@ class UserService:
       return error_response(message=UserMessage.NOT_FOUND, code=ResponseCode.NOT_FOUND)
 
     # 비밀번호 해시화 (password -> encptPswd)
-    user_vo.encptPswd = hash_password(user_vo.password)
+    encpt_pswd = hash_password(user_vo.password)
 
-    # 비밀번호만 업데이트
-    user_entity.encptPswd = user_vo.encptPswd
-    # 업데이트 번호와 일시 설정 (로그인한 사용자 번호 사용)
-    user_entity.updtNo = updt_no
-    user_entity.updtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-    self.session.add(user_entity)
-    self.session.commit()
-    self.session.refresh(user_entity)
+    # DAO를 통해 비밀번호 업데이트
+    updated_user_entity = self.dao.update_user_password(
+      self.session, user_entity, encpt_pswd, updt_no
+    )
 
     # Entity를 VO로 변환하여 반환
-    user_response = UserVo.model_validate(user_entity)
+    user_response = UserVo.model_validate(updated_user_entity)
+    user_response = self._nullify_sensitive_fields(user_response)
     return success_response(
       data=user_response,
       message=UserMessage.UPDATE_SUCCESS,
@@ -206,10 +213,8 @@ class UserService:
         )
       )
 
-    # 삭제 시 업데이트 번호와 일시 설정 (로그인한 사용자 번호 사용)
-    user_entity.updtNo = updt_no
-    user_entity.updtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-    self.dao.delete_user(self.session, user_entity)
+    # DAO를 통해 삭제 (updt_no 전달)
+    self.dao.delete_user(self.session, user_entity, updt_no)
     return success_response(message=UserMessage.get_delete_message(is_single=True))
 
   def deleteUsers(self, user_vo: UserVo, updt_no: int) -> ApiResponse[None]:
@@ -234,13 +239,8 @@ class UserService:
         message=UserMessage.get_delete_not_found_message(is_single=False)
       )
 
-    # 삭제 시 업데이트 번호와 일시 설정 (로그인한 사용자 번호 사용)
-    updt_dt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-    for user_entity in user_entities:
-      user_entity.updtNo = updt_no
-      user_entity.updtDt = updt_dt
-
-    self.dao.delete_users(self.session, user_entities)
+    # DAO를 통해 다건 삭제 (updt_no 전달)
+    self.dao.delete_users(self.session, user_entities, updt_no)
 
     message = UserMessage.get_delete_message(
       count=len(user_entities), not_found_nos=not_found_nos if not_found_nos else None

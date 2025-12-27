@@ -1,5 +1,7 @@
 """인증 관련 스키마 정의"""
 
+from typing import Optional
+
 from pydantic import BaseModel, EmailStr
 
 
@@ -13,8 +15,8 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
   """로그인 응답 스키마"""
 
-  accessToken: str
-  refreshToken: str
+  accessToken: Optional[str] = None
+  refreshToken: Optional[str] = None
   tokenType: str = 'bearer'
 
 

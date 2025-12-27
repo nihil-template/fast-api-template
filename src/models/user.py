@@ -22,7 +22,7 @@ class YnStatus(str, Enum):
 
 
 class UserInfo(SQLModel, table=True):
-  __tablename__ = 'user_info'
+  __tablename__ = 'user_info'  # type: ignore[assignment]
 
   userNo: Optional[int] = Field(
     default=None, sa_column=Column('user_no', Integer, primary_key=True)

@@ -9,7 +9,7 @@ from sqlmodel import Session
 from src.db import get_session
 from src.messages.auth_message import AuthMessage
 from src.services.auth_service import AuthService
-from src.utils.jwt import verify_access_token
+from src.utils.jwt_helper import verify_access_token
 
 # HTTP Bearer 토큰 스키마
 security = HTTPBearer(auto_error=False)
@@ -123,3 +123,10 @@ def get_current_user_id_optional(
   return _get_current_user_id_internal(
     request, credentials, access_token, service, required=False
   )
+
+
+def get_refresh_token_from_cookie(
+  refresh_token: Annotated[Optional[str], Cookie()] = None,
+) -> Optional[str]:
+  """쿠키에서 Refresh Token 추출"""
+  return refresh_token

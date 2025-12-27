@@ -11,8 +11,8 @@ class UserDAO:
   """사용자 데이터 접근 객체"""
 
   @staticmethod
-  def create_user(session: Session, user_vo: UserVo) -> UserInfo:
-    """사용자 생성 (UserVo를 받아서 Entity로 변환)"""
+  def create_user(session: Session, user_vo: UserVo, crt_no: int) -> UserInfo:
+    """사용자 생성 (UserVo와 생성자 번호를 받아 Entity 생성)"""
     print('[DAO] user_vo:', user_vo.model_dump())
     # Service에서 이미 비밀번호 해시화 등 변환 완료
     # 필수 필드 검증 (Service 레이어에서 이미 검증되었지만 타입 안전성을 위해)
@@ -28,9 +28,10 @@ class UserDAO:
       userRole=user_vo.userRole or UserRole.USER,
       useYn=YnStatus.Y if user_vo.useYn is None else user_vo.useYn,  # 기본값 필수
       delYn=YnStatus.N if user_vo.delYn is None else user_vo.delYn,  # 기본값 필수
-      crtNo=user_vo.crtNo,  # 생성자 번호 (관리자가 생성한 경우)
-      crtDt=user_vo.crtDt or now,  # 생성 일시 (관리자가 생성한 경우 또는 현재 시간)
-      updtDt=now,  # 생성 시에도 업데이트 일시 설정
+      crtNo=crt_no,  # 생성자 번호 직접 설정
+      crtDt=now,  # 생성 일시 직접 설정
+      updtNo=crt_no,  # 생성 시 수정자 번호도 동일하게 설정
+      updtDt=now,  # 생성 시 수정 일시도 동일하게 설정
     )
     session.add(user)
     session.commit()
@@ -92,8 +93,25 @@ class UserDAO:
     return list(session.exec(statement).all())
 
   @staticmethod
-  def update_user(session: Session, user: UserInfo, user_vo: UserVo) -> UserInfo:
-    """사용자 정보 업데이트 (UserVo를 받아서 Entity 업데이트)"""
+  def update_user_password(
+    session: Session, user: UserInfo, encpt_pswd: str, updt_no: int
+  ) -> UserInfo:
+    """사용자 비밀번호 업데이트"""
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    user.encptPswd = encpt_pswd
+    user.lastPswdChgDt = now  # 비밀번호 변경 일시 추가
+    user.updtNo = updt_no
+    user.updtDt = now
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+  @staticmethod
+  def update_user(
+    session: Session, user: UserInfo, user_vo: UserVo, updt_no: int
+  ) -> UserInfo:
+    """사용자 정보 업데이트 (UserVo와 수정자 번호를 받아 Entity 업데이트)"""
     # Service에서 이미 비밀번호 해시화 등 변환 완료
     # VO에서 None이 아니고 설정된 값만 추출 (password, 검색 필드 제외)
     update_data = user_vo.model_dump(
@@ -102,6 +120,12 @@ class UserDAO:
       exclude={
         'password',  # password는 encptPswd로 변환되어 있음
         'userNo',  # userNo는 업데이트 대상이 아님
+        'crtNo',  # 생성자 관련 필드는 업데이트 대상이 아님
+        'crtDt',
+        'updtNo',  # 감사 필드는 직접 설정
+        'updtDt',
+        'delNo',
+        'delDt',
         'userNoList',  # 확장 필드
         'page',  # SearchVo 필드
         'pageSz',
@@ -117,11 +141,9 @@ class UserDAO:
       if hasattr(user, key):
         setattr(user, key, value)
 
-    # updtNo와 updtDt가 설정되지 않았으면 기본값 설정
-    if not user.updtNo:
-      user.updtNo = user.userNo
-    if not user.updtDt:
-      user.updtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    # 업데이트 번호와 일시 직접 설정
+    user.updtNo = updt_no
+    user.updtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
     session.add(user)
     session.commit()
@@ -129,29 +151,66 @@ class UserDAO:
     return user
 
   @staticmethod
-  def delete_user(session: Session, user: UserInfo) -> None:
+  def delete_user(session: Session, user: UserInfo, updt_no: int) -> None:
     """사용자 삭제 (소프트 삭제)"""
     user.useYn = YnStatus.N
     user.delYn = YnStatus.Y
-    # updtNo와 updtDt가 설정되지 않았으면 기본값 설정
-    if not user.updtNo:
-      user.updtNo = user.userNo
-    if not user.updtDt:
-      user.updtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    user.updtNo = updt_no
+    user.updtDt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     session.add(user)
     session.commit()
 
   @staticmethod
-  def delete_users(session: Session, users: list[UserInfo]) -> None:
+  def delete_users(session: Session, users: list[UserInfo], updt_no: int) -> None:
     """다건 사용자 삭제 (소프트 삭제)"""
     updt_dt = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
     for user in users:
       user.useYn = YnStatus.N
       user.delYn = YnStatus.Y
-      # updtNo와 updtDt가 설정되지 않았으면 기본값 설정
-      if not user.updtNo:
-        user.updtNo = user.userNo
-      if not user.updtDt:
-        user.updtDt = updt_dt
+      user.updtNo = updt_no
+      user.updtDt = updt_dt
       session.add(user)
     session.commit()
+
+  @staticmethod
+  def update_user_login_info(
+    session: Session, user: UserInfo, refresh_token: str, updt_no: int
+  ) -> UserInfo:
+    """사용자 로그인 정보 업데이트 (마지막 로그인, 리프레시 토큰)"""
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    user.lastLgnDt = now
+    user.reshToken = refresh_token
+    user.updtNo = updt_no
+    user.updtDt = now
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+  @staticmethod
+  def clear_user_refresh_token(
+    session: Session, user: UserInfo, updt_no: int
+  ) -> UserInfo:
+    """사용자 리프레시 토큰 초기화 (로그아웃)"""
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    user.reshToken = None
+    user.updtNo = updt_no
+    user.updtDt = now
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+  @staticmethod
+  def update_user_refresh_token(
+    session: Session, user: UserInfo, new_refresh_token: str, updt_no: int
+  ) -> UserInfo:
+    """사용자 리프레시 토큰 업데이트 (재발급 시)"""
+    now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    user.reshToken = new_refresh_token
+    user.updtNo = updt_no
+    user.updtDt = now
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user

@@ -10,7 +10,7 @@ from src.db import init_db
 from src.routers.auth_router import router as auth_router
 from src.routers.user_router import router as user_router
 from src.schemas.response_schema import ApiResponse
-from src.utils.response import success_response
+from src.utils.response_helper import success_response
 
 
 @asynccontextmanager

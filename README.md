@@ -43,12 +43,12 @@ src/
 ├── vos/                       # Value Object (데이터 전달 객체)
 │   ├── search_vo.py           # 검색/페이지네이션 공통 VO
 │   └── user_vo.py             # 사용자 VO (모든 작업에서 사용)
-└── utils/                     # 유틸리티 함수
-    ├── auth.py                # 인증 유틸리티 (토큰 검증, 사용자 추출)
-    ├── jwt.py                 # JWT 토큰 생성/검증
-    ├── password.py            # 비밀번호 해싱/검증
-    ├── response.py            # 응답 생성 헬퍼
-    └── swagger_examples.py    # Swagger 예시 응답 헬퍼
+└── utils/                     # 유틸리티 함수 (모두 _helper.py 네이밍 규칙 적용)
+    ├── auth_helper.py         # 인증 유틸리티 (토큰 검증, 사용자 추출)
+    ├── jwt_helper.py          # JWT 토큰 생성/검증
+    ├── password_helper.py     # 비밀번호 해싱/검증
+    ├── response_helper.py     # 응답 생성 헬퍼
+    └── swagger_helper.py      # Swagger 예시 응답 헬퍼
 ```
 
 ## 아키텍처 설명
@@ -93,7 +93,7 @@ JWT 기반 인증을 사용합니다.
 - **Access Token**: 짧은 만료 시간 (기본 15분)
 - **Refresh Token**: 긴 만료 시간 (기본 7일)
 - 토큰은 HTTP 헤더의 `Authorization: Bearer <token>` 형식으로 전달
-- `utils/auth.py`의 `get_current_user_id` 의존성으로 현재 사용자 추출
+- `utils/auth_helper.py`의 `get_current_user_id` 의존성으로 현재 사용자 추출
 
 ## Swagger 예시 응답 헬퍼 함수
 
@@ -101,10 +101,10 @@ JWT 기반 인증을 사용합니다.
 
 ### 사용 방법
 
-1. **헬퍼 함수 생성**: `src/utils/swagger_examples.py`에 각 테이블별 예시 데이터 생성 함수를 추가합니다.
+1. **헬퍼 함수 생성**: `src/utils/swagger_helper.py`에 각 테이블별 예시 데이터 생성 함수를 추가합니다.
 
 ```python
-# src/utils/swagger_examples.py
+# src/utils/swagger_helper.py
 
 def get_user_response_example() -> dict:
   """UserResponse 예시 데이터를 반환합니다."""
@@ -132,7 +132,7 @@ def get_user_list_example() -> list[dict]:
 ```python
 # src/routers/user_router.py
 
-from src.utils.swagger_examples import get_user_response_example, get_user_list_example
+from src.utils.swagger_helper import get_user_response_example, get_user_list_example
 
 @router.get(
   '/{user_no}',
@@ -162,7 +162,7 @@ from src.utils.swagger_examples import get_user_response_example, get_user_list_
 
 새로운 테이블을 추가할 때는 다음 단계를 따르세요:
 
-1. `src/utils/swagger_examples.py`에 해당 테이블의 예시 데이터 생성 함수 추가
+1. `src/utils/swagger_helper.py`에 해당 테이블의 예시 데이터 생성 함수 추가
    - 단일 항목: `get_{table_name}_response_example() -> dict`
    - 리스트: `get_{table_name}_list_example() -> list[dict]`
 
@@ -174,20 +174,26 @@ from src.utils.swagger_examples import get_user_response_example, get_user_list_
 
 ## 시작하기
 
+### 사전 요구사항
+
+- [uv](https://github.com/astral-sh/uv) 설치 (Python 패키지 관리자)
+  ```bash
+  # Windows (PowerShell)
+  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+  
+  # macOS / Linux
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+
 ### 환경 설정
 
-1. 가상환경 생성 및 활성화
+1. 의존성 설치 및 가상환경 동기화
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+uv sync
 ```
+uv는 자동으로 가상환경을 생성하고 `pyproject.toml`의 의존성을 설치합니다. 가상환경은 `.venv` 폴더에 생성됩니다.
 
-2. 의존성 설치
-```bash
-pip install -e .
-```
-
-3. 환경 변수 설정
+2. 환경 변수 설정
 `.env` 파일을 생성하고 다음 변수들을 설정하세요:
 
 ```env
@@ -204,16 +210,29 @@ ACCESS_EXP=15m  # Access Token 만료 시간 (기본값: 15분)
 REFRESH_EXP=7d   # Refresh Token 만료 시간 (기본값: 7일)
 ```
 
-4. 데이터베이스 초기화
+3. 데이터베이스 초기화
 ```bash
-python -m src.main
+uv run python -m src.main
 ```
 
 ### 서버 실행
 
 ```bash
-uvicorn src.main:app --reload
+uv run uvicorn src.main:app --reload
 ```
+
+또는 uv를 통해 직접 실행:
+```bash
+uv run --with uvicorn[standard] uvicorn src.main:app --reload
+```
+
+### 유용한 uv 명령어
+
+- `uv sync`: 의존성 설치 및 가상환경 동기화
+- `uv add <package>`: 패키지 추가 (예: `uv add fastapi`)
+- `uv remove <package>`: 패키지 제거
+- `uv run <command>`: 가상환경에서 명령 실행
+- `uv lock`: `uv.lock` 파일 업데이트
 
 서버가 실행되면 다음 URL에서 API 문서를 확인할 수 있습니다:
 - Swagger UI: http://localhost:8000/docs

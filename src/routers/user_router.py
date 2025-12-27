@@ -6,8 +6,8 @@ from src.messages.user_message import UserMessage
 from src.schemas.response_code import ResponseCode
 from src.schemas.response_schema import ApiResponse, ListResponse
 from src.services.user_service import UserService
-from src.utils.auth import get_current_user_id, get_current_user_id_optional
-from src.utils.swagger_examples import get_user_list_example, get_user_response_example
+from src.utils.auth_helper import get_current_user_id, get_current_user_id_optional
+from src.utils.swagger_helper import get_user_list_example, get_user_response_example
 from src.vos.user_vo import UserVo
 
 router = APIRouter(prefix='/users')
@@ -227,7 +227,7 @@ def getUserList(
   user_vo: UserVo = Depends(),
   service: UserService = Depends(get_user_service),
 ):
-  """사용자 목록을 페이지네이션으로 조회합니다. (Query 파라미터를 UserVo로 자동 변환)"""
+  """사용자 목록을 페이지네이션으로 조회합니다."""
   return service.getUserList(user_vo)
 
 
@@ -351,7 +351,7 @@ def updateUser(
   current_user_no: int = Depends(get_current_user_id),
   service: UserService = Depends(get_user_service),
 ):
-  """사용자 정보를 수정합니다. (PATCH 방식 - 전달된 필드만 업데이트, 비밀번호 제외)"""
+  """사용자 정보를 수정합니다."""
   user_vo.userNo = user_no
   return service.updateUser(user_vo, updt_no=current_user_no)
 
@@ -408,7 +408,7 @@ def deleteUser(
   current_user_no: int = Depends(get_current_user_id),
   service: UserService = Depends(get_user_service),
 ):
-  """사용자를 단건 삭제합니다. (소프트 삭제)"""
+  """사용자를 단건 삭제합니다."""
   user_vo = UserVo(userNo=user_no)
   return service.deleteUser(user_vo, updt_no=current_user_no)
 
@@ -465,7 +465,7 @@ def deleteUsers(
   current_user_no: int = Depends(get_current_user_id),
   service: UserService = Depends(get_user_service),
 ):
-  """사용자를 다건 삭제합니다. (소프트 삭제)
+  """사용자를 다건 삭제합니다.
 
   - 요청 예시: `{"userNoList": [1, 2, 3]}` 형태로 요청
   """
